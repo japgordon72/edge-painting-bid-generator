@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Edge Painting — Bid Estimator</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#1a3a5c;--navy-light:#2d5a8e;--teal:#2a9d8f;
+  --gray-50:#f8f9fa;--gray-100:#f1f3f5;--gray-200:#e9ecef;
+  --gray-400:#ced4da;--gray-600:#6c757d;--gray-800:#343a40;
+  --red:#e63946;--green:#2a9d8f;
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+body{font-family:var(--font);background:var(--gray-50);color:var(--gray-800);min-height:100vh;-webkit-text-size-adjust:100%}
+.header{background:var(--navy);color:white;padding:16px 20px 12px;position:sticky;top:0;z-index:100}
+.header h1{font-size:18px;font-weight:700}
+.header p{font-size:12px;opacity:.8;margin-top:2px}
+.progress-bar{background:rgba(255,255,255,.2);height:4px;border-radius:2px;margin-top:10px}
+.progress-fill{background:var(--teal);height:100%;border-radius:2px;transition:width .3s}
+.main{padding:20px 16px 120px;max-width:600px;margin:0 auto}
+.card{background:white;border-radius:12px;padding:20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.card-title{font-size:15px;font-weight:700;color:var(--navy);margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid var(--gray-100)}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:11px;font-weight:700;color:var(--gray-600);margin-bottom:5px;text-transform:uppercase;letter-spacing:.6px}
+.field input,.field select,.field textarea{width:100%;padding:12px 14px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:16px;font-family:var(--font);color:var(--gray-800);background:white;-webkit-appearance:none;transition:border-color .15s}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--navy)}
+.field textarea{resize:none;height:80px;font-size:14px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.tgl-group{display:flex;gap:8px;flex-wrap:wrap}
+.tgl{padding:10px 14px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;font-weight:600;background:white;color:var(--gray-600);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:all .15s}
+.tgl.active{border-color:var(--navy);background:var(--navy);color:white}
+.calc{background:var(--gray-50);border:1.5px solid var(--gray-200);border-radius:8px;padding:12px 14px;font-size:16px;font-weight:700;color:var(--navy)}
+.helper{font-size:11px;color:var(--gray-600);margin-top:4px}
+.info-box{background:#d9e8f5;border-left:4px solid var(--navy);border-radius:0 8px 8px 0;padding:11px 14px;font-size:13px;color:var(--navy);margin-bottom:14px}
+.warn-box{background:#fff3cd;border-left:4px solid #ffc107;border-radius:0 8px 8px 0;padding:11px 14px;font-size:13px;color:#856404;margin-bottom:14px}
+.surf-item{border:1.5px solid var(--gray-200);border-radius:10px;padding:14px;margin-bottom:10px;position:relative}
+.surf-name{font-weight:700;font-size:14px;color:var(--navy)}
+.surf-total{font-weight:700;font-size:14px;color:var(--teal)}
+.surf-detail{font-size:12px;color:var(--gray-600);line-height:1.6;margin-top:4px}
+.surf-remove{position:absolute;top:10px;right:10px;background:none;border:none;color:var(--gray-400);font-size:20px;cursor:pointer;padding:4px;line-height:1}
+.tot-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--gray-100);font-size:14px}
+.tot-row:last-child{border-bottom:none}
+.tot-row.grand{font-weight:800;font-size:18px;color:var(--navy);padding-top:14px;border-top:2px solid var(--navy);border-bottom:none;margin-top:4px}
+.pay-row{display:flex;justify-content:space-between;padding:9px 0;font-size:14px;border-bottom:1px solid var(--gray-100)}
+.pay-row:last-child{border-bottom:none}
+.btn{display:block;width:100%;padding:15px;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;text-align:center;-webkit-tap-highlight-color:transparent;transition:opacity .15s}
+.btn:active{opacity:.85}
+.btn-primary{background:var(--navy);color:white}
+.btn-secondary{background:var(--gray-100);color:var(--navy)}
+.btn-teal{background:var(--teal);color:white}
+.btn-sm{padding:10px 16px;font-size:14px;display:inline-block;width:auto;border-radius:8px;border:none;font-weight:600;cursor:pointer}
+.bottom-bar{position:fixed;bottom:0;left:0;right:0;background:white;padding:12px 16px;border-top:1px solid var(--gray-200);display:flex;gap:10px;z-index:100}
+.divider{height:1px;background:var(--gray-100);margin:16px 0}
+.check-row{display:flex;align-items:center;gap:10px;padding:10px 0}
+.check-row input[type=checkbox]{width:20px;height:20px;cursor:pointer;accent-color:var(--navy)}
+.check-row label{font-size:15px;font-weight:500;color:var(--gray-800);cursor:pointer;margin:0}
+.hidden{display:none!important}
+.step{display:none}
+.step.active{display:block}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;background:#d4f4f1;color:var(--teal)}
+
+/* Print */
+@media print{
+  .header,.bottom-bar,.no-print{display:none!important}
+  .main{padding:0}
+  .card{box-shadow:none;border:1px solid #ddd;break-inside:avoid}
+  body{background:white}
+  .print-header{display:flex!important}
+  .step{display:block!important}
+  #step-1,#step-2,#step-3{display:none!important}
+  #step-4{display:block!important}
+}
+@media screen{.print-header{display:none}.print-only{display:none}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Edge Painting — Bid Estimator</h1>
+  <p id="step-sub">Step 1 of 4 — Client Info</p>
+  <div class="progress-bar"><div class="progress-fill" id="prog" style="width:25%"></div></div>
+</div>
+
+<div class="main">
+
+<!-- STEP 1: Client Info -->
+<div class="step active" id="step-1">
+  <div class="card">
+    <div class="card-title">Client Information</div>
+    <div class="field"><label>Client Name</label><input id="c-name" type="text" placeholder="Full name" autocomplete="name"></div>
+    <div class="field"><label>Property Address</label><input id="c-addr" type="text" placeholder="Street address"></div>
+    <div class="row2">
+      <div class="field"><label>City</label><input id="c-city" type="text" value="San Diego"></div>
+      <div class="field"><label>ZIP</label><input id="c-zip" type="text" placeholder="92101" inputmode="numeric"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Phone</label><input id="c-phone" type="tel" placeholder="(619) 555-0000"></div>
+      <div class="field"><label>Email</label><input id="c-email" type="email" placeholder="name@email.com"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Job Details</div>
+    <div class="field">
+      <label>Job Type</label>
+      <div class="tgl-group">
+        <button class="tgl active" data-val="exterior" onclick="tgl('jtype',this)">Exterior</button>
+        <button class="tgl" data-val="interior" onclick="tgl('jtype',this)">Interior</button>
+        <button class="tgl" data-val="both" onclick="tgl('jtype',this)">Both</button>
+        <button class="tgl" data-val="pressure_wash" onclick="tgl('jtype',this)">Pressure Wash</button>
+      </div>
+      <input type="hidden" id="jtype" value="exterior">
+    </div>
+    <div class="row2">
+      <div class="field"><label>Est. Start</label><input id="j-start" type="date"></div>
+      <div class="field"><label>Est. Completion</label><input id="j-end" type="date"></div>
+    </div>
+  </div>
+</div>
+
+<!-- STEP 2: Surfaces -->
+<div class="step" id="step-2">
+  <div id="surf-list"></div>
+  <div class="card" id="surf-card">
+    <div class="card-title">Add Surface</div>
+    <div class="field"><label>Surface Name</label><input id="s-name" type="text" placeholder="e.g. Front Exterior, Living Room Walls"></div>
+    <div class="field">
+      <label>Surface Type</label>
+      <div class="tgl-group">
+        <button class="tgl active" data-val="walls" onclick="setSurfType(this)">Walls</button>
+        <button class="tgl" data-val="ceiling" onclick="setSurfType(this)">Ceiling</button>
+        <button class="tgl" data-val="trim" onclick="setSurfType(this)">Trim</button>
+        <button class="tgl" data-val="exterior" onclick="setSurfType(this)">Exterior</button>
+        <button class="tgl" data-val="faux" onclick="setSurfType(this)">Faux Finish</button>
+        <button class="tgl" data-val="wood_repair" onclick="setSurfType(this)">Wood Repair</button>
+        <button class="tgl" data-val="pressure_wash" onclick="setSurfType(this)">Pressure Wash</button>
+      </div>
+      <input type="hidden" id="s-type" value="walls">
+    </div>
+    <div id="specialty-note" class="hidden"><div class="info-box">Specialty service — 35% labor premium applied</div></div>
+    <div class="row2" id="sqft-row">
+      <div class="field"><label>Square Feet</label><input id="s-sqft" type="number" placeholder="0" inputmode="numeric" oninput="calcSurf()"></div>
+      <div class="field">
+        <label>Coats</label>
+        <div class="tgl-group">
+          <button class="tgl active" data-val="1" onclick="tgl('s-coats',this);calcSurf()">1 Coat</button>
+          <button class="tgl" data-val="2" onclick="tgl('s-coats',this);calcSurf()">2 Coats</button>
+        </div>
+        <input type="hidden" id="s-coats" value="1">
+      </div>
+    </div>
+    <div class="field" id="texture-row">
+      <label>Surface Texture</label>
+      <select id="s-texture" onchange="calcSurf()">
+        <option value="smooth">Smooth Interior</option>
+        <option value="orange_peel" selected>Orange Peel</option>
+        <option value="knockdown">Knockdown</option>
+        <option value="heavy">Heavy Texture</option>
+        <option value="exterior_smooth">Exterior Smooth</option>
+        <option value="exterior_rough">Exterior Rough/Weathered</option>
+        <option value="stucco_smooth">Stucco Smooth</option>
+        <option value="stucco_heavy">Stucco Heavy</option>
+      </select>
+    </div>
+    <div class="divider"></div>
+    <div class="card-title" style="font-size:13px;margin-bottom:12px;">Paint Specification</div>
+    <div class="check-row"><input type="checkbox" id="primer-check" onchange="togglePrimer()"><label for="primer-check">Primer required</label></div>
+    <div id="primer-fields" class="hidden">
+      <div class="row2">
+        <div class="field"><label>Primer Product</label><input id="primer-prod" type="text" placeholder="SW Premium Wall & Wood Primer"></div>
+        <div class="field"><label>Primer Qty (gal)</label><input id="primer-qty" type="number" placeholder="0" step="0.5" inputmode="decimal" oninput="calcSurf()"></div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Paint Product</label>
+      <select id="s-paint" onchange="paintChanged()">
+        <option value="SW Duration Exterior|58">SW Duration Exterior — $58/gal</option>
+        <option value="SW Emerald Exterior|68">SW Emerald Exterior — $68/gal</option>
+        <option value="SW SuperPaint Exterior|42">SW SuperPaint Exterior — $42/gal</option>
+        <option value="SW Cashmere Interior|45">SW Cashmere Interior — $45/gal</option>
+        <option value="SW Emerald Interior|62">SW Emerald Interior — $62/gal</option>
+        <option value="SW ProMar 200|28">SW ProMar 200 — $28/gal</option>
+        <option value="SW Ceiling Paint|35">SW Ceiling Paint — $35/gal</option>
+        <option value="SW Emerald Urethane Trim|65">SW Emerald Urethane Trim — $65/gal</option>
+        <option value="custom|0">Other (enter below)</option>
+      </select>
+    </div>
+    <div class="row2 hidden" id="custom-paint">
+      <div class="field"><label>Custom Product Name</label><input id="custom-name" type="text" placeholder="Product name"></div>
+      <div class="field"><label>Price per Gallon ($)</label><input id="custom-price" type="number" placeholder="0" inputmode="decimal" oninput="calcSurf()"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Color Name</label><input id="s-color" type="text" placeholder="Alabaster"></div>
+      <div class="field"><label>SW Color #</label><input id="s-colornum" type="text" placeholder="SW 7008"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Sheen</label>
+        <select id="s-sheen">
+          <option value="Flat">Flat</option>
+          <option value="Eggshell" selected>Eggshell</option>
+          <option value="Satin">Satin</option>
+          <option value="Semi-gloss">Semi-gloss</option>
+          <option value="Gloss">Gloss</option>
+        </select>
+      </div>
+      <div class="field"><label>Base</label>
+        <select id="s-base">
+          <option>White Base</option>
+          <option>Light Base</option>
+          <option>Medium Base</option>
+          <option>Deep Base</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Paint Qty — auto-calculated</label>
+      <div class="calc" id="paint-qty">—</div>
+      <p class="helper" id="cov-helper"></p>
+    </div>
+    <div class="field"><label>Materials Cost</label><div class="calc" id="mat-cost">—</div></div>
+    <div class="divider"></div>
+    <div class="card-title" style="font-size:13px;margin-bottom:12px;">Labor</div>
+    <div class="field">
+      <label>Labor Type</label>
+      <div class="tgl-group">
+        <button class="tgl active" data-val="w2" onclick="tgl('l-type',this);toggleLaborRate();calcSurf()">W-2 ($35/hr)</button>
+        <button class="tgl" data-val="1099" onclick="tgl('l-type',this);toggleLaborRate();calcSurf()">1099 (custom rate)</button>
+      </div>
+      <input type="hidden" id="l-type" value="w2">
+    </div>
+    <div class="field hidden" id="custom-labor">
+      <label>1099 Rate ($/hr)</label>
+      <input id="l-custom-rate" type="number" placeholder="30" inputmode="decimal" oninput="calcSurf()">
+    </div>
+    <div class="row2">
+      <div class="field"><label>Owner Hours (Tyler @ $65/hr)</label><input id="l-owner" type="number" placeholder="0" step="0.5" inputmode="decimal" oninput="calcSurf()"></div>
+      <div class="field"><label>Employee Hours</label><input id="l-emp" type="number" placeholder="0" step="0.5" inputmode="decimal" oninput="calcSurf()"></div>
+    </div>
+    <div class="field"><label>Labor Cost</label><div class="calc" id="lab-cost">—</div></div>
+    <div class="field"><label>Surface Notes / Prep</label><textarea id="s-notes" placeholder="Extra prep, access, special requests..."></textarea></div>
+    <div style="background:var(--navy);color:white;border-radius:10px;padding:16px;margin-top:8px;display:flex;justify-content:space-between;align-items:center;">
+      <span style="opacity:.8;font-size:14px;">Surface Total</span>
+      <span style="font-size:24px;font-weight:800;" id="surf-tot">$0.00</span>
+    </div>
+    <button class="btn btn-teal" style="margin-top:14px;" onclick="addSurf()">+ Add This Surface</button>
+  </div>
+</div>
+
+<!-- STEP 3: Summary -->
+<div class="step" id="step-3">
+  <div class="card">
+    <div class="card-title">Job Summary</div>
+    <div id="sum-client" style="font-size:14px;color:var(--gray-600);line-height:1.7;margin-bottom:14px;"></div>
+    <div id="sum-surfaces"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Pricing Breakdown</div>
+    <div class="info-box no-print">Internal view — not shared with client</div>
+    <div id="sum-totals"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Payment Schedule</div>
+    <div class="warn-box">CA law: Max deposit = $1,000 or 10% of total — whichever is less</div>
+    <div id="sum-payments"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Notes & Terms</div>
+    <div class="field"><label>Additional Notes</label><textarea id="j-notes" placeholder="Special prep, access instructions, client requests..."></textarea></div>
+    <div class="field"><label>Payment Terms</label><textarea id="j-terms">Deposit due at signing. Progress payments per schedule. Final payment due upon walk-through approval.</textarea></div>
+  </div>
+</div>
+
+<!-- STEP 4: Client Estimate -->
+<div class="step" id="step-4">
+  <!-- Print-only header -->
+  <div class="print-header" style="justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid var(--navy);">
+    <div>
+      <h2 style="font-size:22px;color:var(--navy);font-weight:800;">Edge Painting</h2>
+      <p style="font-size:12px;color:var(--gray-600);">CSLB License No.: _______________</p>
+    </div>
+    <div style="text-align:right;border:2px solid var(--navy);padding:10px 16px;border-radius:8px;">
+      <p style="font-size:11px;color:var(--gray-600);text-transform:uppercase;">Estimate Total</p>
+      <p style="font-size:26px;font-weight:800;color:var(--navy);" id="print-total">$0.00</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
+      <div>
+        <div class="card-title" style="margin-bottom:2px;">Painting Estimate</div>
+        <div id="est-date" style="font-size:12px;color:var(--gray-600);"></div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:11px;color:var(--gray-600);">Estimate Total</div>
+        <div style="font-size:22px;font-weight:800;color:var(--navy);" id="est-total">$0.00</div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div id="est-client" style="font-size:13px;line-height:1.9;color:var(--gray-800);margin-bottom:14px;"></div>
+    <div class="divider"></div>
+    <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px;">Project Summary</div>
+    <div id="est-table"></div>
+    <div class="divider"></div>
+    <div id="est-totals"></div>
+    <div class="divider"></div>
+    <div id="est-terms"></div>
+    <div class="divider"></div>
+    <div style="font-size:12px;color:var(--gray-600);line-height:1.7;">
+      <strong style="color:var(--navy);">Edge Painting</strong> &nbsp;·&nbsp; Tyler Gordon &nbsp;·&nbsp; San Diego, CA<br>
+      CSLB License No.: _______________ &nbsp;·&nbsp; <span id="est-phone"></span> &nbsp;·&nbsp; <span id="est-email-out"></span>
+    </div>
+    <div class="divider"></div>
+    <div style="font-size:11px;color:var(--gray-600);font-style:italic;line-height:1.7;">
+      <strong>Satisfaction Guarantee:</strong> We're not happy until you're thrilled with the finish. Concerns must be raised within 5 business days of completion.<br>
+      <strong>CA Notice:</strong> The law requires that a contractor not demand or accept payment exceeding 10% of the contract price or $1,000 (whichever is less) before the project begins. CSLB License required.
+    </div>
+  </div>
+
+  <div class="card no-print">
+    <div class="card-title">Internal Breakdown</div>
+    <div class="info-box">Do not share with client</div>
+    <div id="est-internal"></div>
+  </div>
+
+  <div class="card no-print">
+    <div class="card-title">Save & Send</div>
+    <button class="btn btn-primary" onclick="window.print()" style="margin-bottom:10px;">Print / Save as PDF</button>
+    <button class="btn btn-secondary" onclick="saveLocal()">Save Quote to Device</button>
+    <p class="helper" style="text-align:center;margin-top:8px;">Print → Save as PDF generates the client estimate</p>
+  </div>
+</div>
+
+</div><!-- end .main -->
+
+<div class="bottom-bar">
+  <button class="btn btn-secondary" id="btn-back" onclick="prevStep()" style="display:none;flex:0 0 80px;">Back</button>
+  <button class="btn btn-primary" id="btn-next" onclick="nextStep()" style="flex:1;">Next: Add Surfaces →</button>
+</div>
+
+<script>
+// ── Constants ──────────────────────────────────────────────
+const OWNER_RATE = 65, W2_RATE = 35, SPEC_PREMIUM = 0.35;
+const OVERHEAD = 0.15, PROFIT = 0.15, PRIMER_PRICE = 32;
+const COV = {smooth:375,orange_peel:300,knockdown:275,heavy:200,exterior_smooth:325,exterior_rough:250,stucco_smooth:275,stucco_heavy:200};
+const PAINT_DEFAULTS = {exterior:'SW Duration Exterior|58',walls:'SW Cashmere Interior|45',ceiling:'SW Ceiling Paint|35',trim:'SW Emerald Urethane Trim|65',faux:'SW Emerald Interior|62',wood_repair:'SW Cashmere Interior|45',pressure_wash:'SW Duration Exterior|58'};
+
+// ── State ──────────────────────────────────────────────────
+let step = 1, surfaces = [];
+const job = {};
+
+// ── Navigation ─────────────────────────────────────────────
+const SUBS = ['','Client Info','Add Surfaces','Review & Totals','Client Estimate'];
+const NEXT_LABELS = ['','Next: Add Surfaces →','Next: Review →','Generate Estimate →','All done'];
+
+function goStep(n){
+  document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));
+  document.getElementById('step-'+n).classList.add('active');
+  step = n;
+  document.getElementById('prog').style.width = (n/4*100)+'%';
+  document.getElementById('step-sub').textContent = 'Step '+n+' of 4 — '+SUBS[n];
+  document.getElementById('btn-next').textContent = NEXT_LABELS[n];
+  document.getElementById('btn-back').style.display = n>1?'block':'none';
+  window.scrollTo(0,0);
+}
+
+function nextStep(){
+  if(step===1){
+    if(!v('c-name','Client name required')||!v('c-addr','Property address required'))return;
+    captureJob(); goStep(2);
+  } else if(step===2){
+    if(!surfaces.length){alert('Add at least one surface.');return;}
+    goStep(3); renderSummary();
+  } else if(step===3){
+    goStep(4); renderEstimate();
+  } else {
+    alert('Use Print / Save as PDF to share the estimate with your client.');
+  }
+}
+
+function prevStep(){if(step>1)goStep(step-1);}
+
+function v(id,msg){const val=document.getElementById(id).value.trim();if(!val){alert(msg);document.getElementById(id).focus();return false;}return true;}
+
+function captureJob(){
+  Object.assign(job,{
+    name: g('c-name'), addr: g('c-addr'), city: g('c-city'),
+    zip: g('c-zip'), phone: g('c-phone'), email: g('c-email'),
+    type: g('jtype'), start: g('j-start'), end: g('j-end')
+  });
+}
+
+function g(id){return document.getElementById(id).value.trim();}
+
+// ── Toggles ────────────────────────────────────────────────
+function tgl(fieldId, btn){
+  const grp = btn.closest('.tgl-group');
+  grp.querySelectorAll('.tgl').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(fieldId).value = btn.dataset.val;
+}
+
+function setSurfType(btn){
+  tgl('s-type', btn);
+  const t = btn.dataset.val;
+  const spec = t==='faux'||t==='wood_repair';
+  document.getElementById('specialty-note').classList.toggle('hidden',!spec);
+  document.getElementById('texture-row').style.display = (t==='pressure_wash'||t==='trim')?'none':'block';
+  if(t==='exterior') document.getElementById('s-texture').value='exterior_smooth';
+  if(PAINT_DEFAULTS[t]) document.getElementById('s-paint').value=PAINT_DEFAULTS[t];
+  document.getElementById('custom-paint').classList.add('hidden');
+  calcSurf();
+}
+
+function togglePrimer(){
+  document.getElementById('primer-fields').classList.toggle('hidden',!document.getElementById('primer-check').checked);
+  calcSurf();
+}
+
+function toggleLaborRate(){
+  document.getElementById('custom-labor').classList.toggle('hidden', g('l-type')!=='1099');
+}
+
+function paintChanged(){
+  const isCustom = document.getElementById('s-paint').value==='custom|0';
+  document.getElementById('custom-paint').classList.toggle('hidden',!isCustom);
+  calcSurf();
+}
+
+// ── Calculation ─────────────────────────────────────────────
+function calcSurf(){
+  const sqft = parseFloat(g('s-sqft'))||0;
+  const coats = parseInt(document.getElementById('s-coats').value)||1;
+  const cov = COV[document.getElementById('s-texture').value]||325;
+  const gallons = sqft>0 ? Math.ceil((sqft/cov)*coats*1.10) : 0;
+
+  document.getElementById('paint-qty').textContent = gallons>0 ? gallons+' gallons' : '—';
+  document.getElementById('cov-helper').textContent = sqft>0 ? `${cov} sq ft/gal · ${sqft} sq ft · ${coats} coat(s) · 10% buffer` : '';
+
+  const pv = document.getElementById('s-paint').value;
+  let pPrice = pv==='custom|0' ? (parseFloat(g('custom-price'))||0) : parseFloat(pv.split('|')[1])||0;
+  let matCost = gallons * pPrice;
+  if(document.getElementById('primer-check').checked) matCost += (parseFloat(g('primer-qty'))||0)*PRIMER_PRICE;
+
+  document.getElementById('mat-cost').textContent = '$'+matCost.toFixed(2);
+
+  const oh = parseFloat(g('l-owner'))||0;
+  const eh = parseFloat(g('l-emp'))||0;
+  const ltype = document.getElementById('l-type').value;
+  const empRate = ltype==='w2' ? W2_RATE : (parseFloat(g('l-custom-rate'))||W2_RATE);
+  const st = document.getElementById('s-type').value;
+  const spec = st==='faux'||st==='wood_repair';
+  const ownerR = spec ? OWNER_RATE*(1+SPEC_PREMIUM) : OWNER_RATE;
+  const empR = spec ? empRate*(1+SPEC_PREMIUM) : empRate;
+  const labCost = oh*ownerR + eh*empR;
+
+  document.getElementById('lab-cost').textContent = '$'+labCost.toFixed(2);
+  document.getElementById('surf-tot').textContent = '$'+(matCost+labCost).toFixed(2);
+  return {matCost, labCost, total: matCost+labCost, gallons, pPrice};
+}
+
+function jobTotals(list){
+  const sub = list.reduce((a,s)=>a+s.total,0);
+  const oh = sub*OVERHEAD;
+  const profit = (sub+oh)*PROFIT;
+  const total = sub+oh+profit;
+  const dep = Math.min(1000, total*0.10);
+  return {sub,oh,profit,total,dep};
+}
+
+function fmt(n){return '$'+n.toFixed(2);}
+
+// ── Add Surface ─────────────────────────────────────────────
+function addSurf(){
+  if(!document.getElementById('s-name').value.trim()){alert('Enter a surface name.');return;}
+  const c = calcSurf();
+  const st = document.getElementById('s-type').value;
+  const pv = document.getElementById('s-paint').value;
+  const pName = pv==='custom|0' ? g('custom-name') : pv.split('|')[0];
+  const spec = st==='faux'||st==='wood_repair';
+
+  surfaces.push({
+    id: Date.now(), name: g('s-name'), type: st,
+    sqft: parseFloat(g('s-sqft'))||0,
+    texture: document.getElementById('s-texture').value,
+    coats: parseInt(document.getElementById('s-coats').value)||1,
+    primerNeeded: document.getElementById('primer-check').checked,
+    primerProd: g('primer-prod')||'SW Premium Wall & Wood Primer',
+    primerQty: parseFloat(g('primer-qty'))||0,
+    paintName: pName, paintPrice: c.pPrice, gallons: c.gallons,
+    color: g('s-color'), colorNum: g('s-colornum'),
+    sheen: g('s-sheen'), base: g('s-base'),
+    ownerHrs: parseFloat(g('l-owner'))||0,
+    empHrs: parseFloat(g('l-emp'))||0,
+    laborType: document.getElementById('l-type').value,
+    customRate: parseFloat(g('l-custom-rate'))||W2_RATE,
+    spec, matCost: c.matCost, labCost: c.labCost, total: c.total,
+    notes: g('s-notes')
+  });
+  renderSurfList();
+  resetSurf();
+}
+
+function removeSurf(id){surfaces=surfaces.filter(s=>s.id!==id);renderSurfList();}
+
+function resetSurf(){
+  ['s-name','s-sqft','s-color','s-colornum','s-notes','primer-prod','primer-qty','l-owner','l-emp','l-custom-rate','custom-name','custom-price']
+    .forEach(id=>{document.getElementById(id).value='';});
+  document.getElementById('primer-check').checked=false;
+  document.getElementById('primer-fields').classList.add('hidden');
+  document.getElementById('custom-paint').classList.add('hidden');
+  document.getElementById('custom-labor').classList.add('hidden');
+  document.getElementById('specialty-note').classList.add('hidden');
+  ['paint-qty','mat-cost','lab-cost'].forEach(id=>{document.getElementById(id).textContent='—';});
+  document.getElementById('surf-tot').textContent='$0.00';
+  document.getElementById('cov-helper').textContent='';
+  document.getElementById('s-coats').value='1';
+  document.getElementById('l-type').value='w2';
+  // reset toggle buttons
+  document.querySelectorAll('#step-2 .tgl-group').forEach(g=>{
+    g.querySelectorAll('.tgl').forEach((b,i)=>b.classList.toggle('active',i===0));
+  });
+  document.getElementById('s-type').value='walls';
+  document.getElementById('s-paint').value=PAINT_DEFAULTS['walls'];
+  document.getElementById('texture-row').style.display='block';
+  window.scrollTo(0,0);
+}
+
+function renderSurfList(){
+  const el = document.getElementById('surf-list');
+  if(!surfaces.length){el.innerHTML='';return;}
+  const t = jobTotals(surfaces);
+  el.innerHTML=`<div class="card">
+    <div class="card-title">Surfaces Added (${surfaces.length})</div>
+    ${surfaces.map(s=>`
+      <div class="surf-item">
+        <button class="surf-remove" onclick="removeSurf(${s.id})">×</button>
+        <div style="display:flex;justify-content:space-between;">
+          <span class="surf-name">${s.name}</span>
+          <span class="surf-total">${fmt(s.total)}</span>
+        </div>
+        <div class="surf-detail">
+          ${s.type} · ${s.sqft} sq ft · ${s.coats} coat(s)<br>
+          ${s.paintName}${s.color?' · '+s.color:''} · ${s.sheen}<br>
+          ${s.gallons} gal · Owner: ${s.ownerHrs}h · Crew: ${s.empHrs}h
+          ${s.spec?' · <span class="badge">Specialty +35%</span>':''}
+        </div>
+      </div>`).join('')}
+    <div class="tot-row grand"><span>Running Total (incl. overhead + profit)</span><span>${fmt(t.total)}</span></div>
+  </div>`;
+}
+
+// ── Summary (Step 3) ─────────────────────────────────────────
+function renderSummary(){
+  captureJob();
+  const t = jobTotals(surfaces);
+  document.getElementById('sum-client').innerHTML=`<strong>${job.name}</strong><br>${job.addr}, ${job.city} ${job.zip}<br>${job.phone} · ${job.email}`;
+  document.getElementById('sum-surfaces').innerHTML=surfaces.map(s=>`
+    <div class="surf-item">
+      <div style="display:flex;justify-content:space-between;">
+        <span class="surf-name">${s.name}</span><span class="surf-total">${fmt(s.total)}</span>
+      </div>
+      <div class="surf-detail">
+        ${s.sqft} sq ft · ${s.gallons} gal ${s.paintName} · ${s.sheen}<br>
+        Mat: ${fmt(s.matCost)} · Labor: ${fmt(s.labCost)}${s.spec?' · <span class="badge">Specialty</span>':''}
+      </div>
+    </div>`).join('');
+  document.getElementById('sum-totals').innerHTML=`
+    <div class="tot-row"><span>Materials + Labor Subtotal</span><span>${fmt(t.sub)}</span></div>
+    <div class="tot-row"><span>Overhead (15%)</span><span>${fmt(t.oh)}</span></div>
+    <div class="tot-row"><span>Profit Margin (15%)</span><span>${fmt(t.profit)}</span></div>
+    <div class="tot-row grand"><span>TOTAL QUOTE</span><span>${fmt(t.total)}</span></div>`;
+  const at40=t.total*.40, fin=t.total*.10, prog=t.total-t.dep-at40-fin;
+  document.getElementById('sum-payments').innerHTML=`
+    <div class="pay-row"><span>Deposit at signing</span><span style="font-weight:700;color:var(--teal);">${fmt(t.dep)}</span></div>
+    <div class="pay-row"><span>At job start (40%)</span><span>${fmt(at40)}</span></div>
+    <div class="pay-row"><span>Substantial completion</span><span>${fmt(prog)}</span></div>
+    <div class="pay-row"><span>Final walk-through (10%)</span><span>${fmt(fin)}</span></div>
+    <div class="pay-row" style="border-top:2px solid var(--navy);margin-top:4px;padding-top:12px;">
+      <span style="font-weight:700;">Total</span><span style="font-weight:800;font-size:16px;">${fmt(t.total)}</span>
+    </div>`;
+}
+
+// ── Estimate (Step 4) ────────────────────────────────────────
+function renderEstimate(){
+  captureJob();
+  const t = jobTotals(surfaces);
+  const today = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  document.getElementById('est-date').textContent='Date: '+today;
+  document.getElementById('est-total').textContent=fmt(t.total);
+  document.getElementById('print-total').textContent=fmt(t.total);
+  document.getElementById('est-client').innerHTML=`<strong>Client:</strong> ${job.name}<br><strong>Address:</strong> ${job.addr}, ${job.city}, CA ${job.zip}<br><strong>Phone:</strong> ${job.phone}<br><strong>Email:</strong> ${job.email}`;
+
+  document.getElementById('est-table').innerHTML=`
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead><tr style="background:var(--navy);color:white;">
+        <th style="padding:9px 8px;text-align:left;border-radius:4px 0 0 4px;">Room / Area</th>
+        <th style="padding:9px 8px;text-align:left;">Surface</th>
+        <th style="padding:9px 8px;text-align:left;">Description</th>
+        <th style="padding:9px 8px;text-align:right;border-radius:0 4px 4px 0;">Cost</th>
+      </tr></thead>
+      <tbody>${surfaces.map((s,i)=>`
+        <tr style="background:${i%2?'var(--gray-50)':'white'};">
+          <td style="padding:9px 8px;font-weight:600;">${s.name}</td>
+          <td style="padding:9px 8px;color:var(--gray-600);">${s.type}</td>
+          <td style="padding:9px 8px;color:var(--gray-600);">${s.paintName}${s.color?' · '+s.color:''}${s.colorNum?' ('+s.colorNum+')':''} · ${s.sheen} · ${s.coats} coat(s)${s.primerNeeded?' · Primer incl.':''}</td>
+          <td style="padding:9px 8px;text-align:right;font-weight:600;">${fmt(s.total+(s.total*OVERHEAD)+(s.total*(1+OVERHEAD)*PROFIT/surfaces.length))}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+
+  document.getElementById('est-totals').innerHTML=`
+    <div class="tot-row"><span>Total Cost</span><span>${fmt(t.total)}</span></div>
+    <div class="tot-row"><span>Discounts</span><span>$0.00</span></div>
+    <div class="tot-row grand"><span>NET COST</span><span>${fmt(t.total)}</span></div>`;
+
+  const notes=g('j-notes'), terms=g('j-terms');
+  const dep=t.dep;
+  const sd=job.start?new Date(job.start).toLocaleDateString('en-US'):'TBD';
+  const ed=job.end?new Date(job.end).toLocaleDateString('en-US'):'TBD';
+  document.getElementById('est-terms').innerHTML=`
+    ${notes?`<p style="font-size:13px;margin-bottom:12px;"><strong>Notes:</strong><br><span style="color:var(--gray-600);">${notes}</span></p>`:''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:13px;">
+      <div><strong>Payment Terms:</strong><br><span style="color:var(--gray-600);">${terms}</span><br><br><strong>Deposit Due:</strong><br><span style="color:var(--teal);font-weight:800;font-size:18px;">${fmt(dep)}</span></div>
+      <div><strong>Est. Start:</strong><br><span style="color:var(--gray-600);">${sd}</span><br><br><strong>Est. Completion:</strong><br><span style="color:var(--gray-600);">${ed}</span></div>
+    </div>`;
+
+  document.getElementById('est-internal').innerHTML=`
+    <div class="tot-row"><span>Subtotal (mat + labor)</span><span>${fmt(t.sub)}</span></div>
+    <div class="tot-row"><span>Overhead (15%)</span><span>${fmt(t.oh)}</span></div>
+    <div class="tot-row"><span>Profit (15%)</span><span>${fmt(t.profit)}</span></div>
+    <div class="tot-row grand"><span>CLIENT PAYS</span><span>${fmt(t.total)}</span></div>
+    <div class="tot-row" style="color:var(--teal);font-weight:600;"><span>Max Deposit (CA Law)</span><span>${fmt(dep)}</span></div>
+    <div class="divider"></div>
+    ${surfaces.map(s=>`<div class="tot-row" style="font-size:12px;"><span>${s.name}</span><span>Mat: ${fmt(s.matCost)} · Labor: ${fmt(s.labCost)}</span></div>`).join('')}`;
+}
+
+// ── Save ─────────────────────────────────────────────────────
+function saveLocal(){
+  captureJob();
+  const data={job,surfaces,saved:new Date().toISOString()};
+  const key='edge-quote-'+job.name.replace(/\s/g,'-')+'-'+Date.now();
+  try{localStorage.setItem(key,JSON.stringify(data));alert('Saved: '+key);}
+  catch(e){alert('Could not save — try printing to PDF instead.');}
+}
+
+// ── Init ──────────────────────────────────────────────────────
+goStep(1);
+</script>
+</body>
+</html>
